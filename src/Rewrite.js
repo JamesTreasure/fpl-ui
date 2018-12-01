@@ -8,7 +8,8 @@ import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
-import SearchBar from 'material-ui-search-bar'
+import TextField from '@material-ui/core/TextField';
+
 
 // const PATH_BASE = 'http://fantasy.premierleague.com/drf';
 const PATH_BASE = 'http://localhost:8080'
@@ -141,7 +142,7 @@ class App extends Component {
 
   searchButton() {
     return (
-      <SearchBar
+      <TextField
         onChange={() => console.log('onChange')}
         onRequestSearch={() => this.calculateTableValues()}
         style={{
