@@ -9,6 +9,8 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import TextField from '@material-ui/core/TextField';
+import SearchBar from 'material-ui-search-bar'
+
 
 
 // const PATH_BASE = 'http://fantasy.premierleague.com/drf';
@@ -142,7 +144,7 @@ class App extends Component {
 
   searchButton() {
     return (
-      <TextField
+      <SearchBar
         onChange={() => console.log('onChange')}
         onRequestSearch={() => this.calculateTableValues()}
         style={{
@@ -152,6 +154,7 @@ class App extends Component {
       />
     );
   }
+
 
   getAllScores(element) {
     console.log("Getting gameweek for " + element.entry_name);
