@@ -13,9 +13,7 @@ import SearchBar from 'material-ui-search-bar'
 
 
 
-// const PATH_BASE = 'http://fantasy.premierleague.com/drf';
 const PATH_BASE = 'http://localhost:8080'
-// const PATH_LEAGUE = '/leagues-classic-standings/670123?phase=1&le-page=1&ls-page=1';
 const PATH_LEAGUE = '/league/670123'
 const PATH_GAMEWEEK = '/entry/4309204/event/'
 
@@ -35,7 +33,6 @@ class App extends Component {
     super(props);
     this.getAllScores = this.getAllScores.bind(this);
     this.setPicks = this.setPicks.bind(this);
-    this.calculateGameWeekScoreForEachLeagueMember = this.calculateGameWeekScoreForEachLeagueMember.bind(this);
     this.state = {
       currentGameweek: 10,
       currentGameweekPicks: {},
@@ -53,79 +50,14 @@ class App extends Component {
     console.log("Picks Loaded");
   }
 
-  setLastWeekScore(userId, result) {
-    this.state.lastGameweekScore[userId] = result.entry_history.total_points;
-    for (var i = 0; i < this.state.league.standings.results.length; i++) {
-      if (userId === this.state.league.standings.results[i].entry) {
-        var tempState = this.state.league;
-
-        tempState.standings.results[i]["last_gameweek_points"] = result.entry_history.total_points;
-        this.setState({ league: tempState })
-      }
-    }
-  }
-
-  calculateGameWeekScoreForEachLeagueMember() {
-    console.log("Calculate gameweek score for each league member")
-    var gameweekScore = 0;
-    console.log(this.state.currentGameweekPicks);
-    for (const [key, value] of Object.entries(this.state.currentGameweekPicks)) {
-      console.log("Getting all points for 15 players -------------")
-      for (var i = 0; i < value.length - 4; i++) {
-        var multiplier = value[i].multiplier;
-        var points = this.state.curretGameweekPoints[value[i].element].stats.total_points;
-        console.log("i is " + i + ", points are " + points + ", element is " + value[i].element)
-        gameweekScore += (points) * multiplier;
-
-      }
-      this.state.league.standings.results
-      for (var i = 0; i < this.state.league.standings.results.length; i++) {
-        if (this.state.league.standings.results[i].entry == parseInt(key, 10)) {
-          console.log(this.state.league.standings.results[i].entry_name);
-        }
-      }
-      this.state.userCurrentGameweekMap[key] = gameweekScore;
-      for (var i = 0; i < this.state.league.standings.results.length; i++) {
-        if (parseInt(key) === this.state.league.standings.results[i].entry) {
-          var tempState = this.state.league;
-
-          tempState.standings.results[i]["current_gameweek_points"] = gameweekScore;
-          this.setState({ league: tempState })
-        }
-      }
-      console.log("Current gameweek score is " + gameweekScore);
-      console.log("---------------------------------")
-      gameweekScore = 0;
-    }
-  }
-
-  loadCurrentGameweekEvent(currentGameWeek) {
-    console.log("Loading current gameweek event.")
-    fetch("https://fantasy.premierleague.com/drf/event/10/live", {
-      headers: {
-        "X-Requested-With": "true"
-      },
-    })
-      .then(response => response.json())
-      .then(result => this.setCurrentGameweekEvent(result))
-      // .then(result => this.calculateGameWeekScoreForEachLeagueMember())
-      .catch(error => console.log(error));
-  }
-
-  setCurrentGameweekEvent(currentGameweekEvent) {
-    console.log(currentGameweekEvent);
-    this.setState({ currentGameweekEvent: currentGameweekEvent })
-  }
-
-  loadCurrentGameWeekPoints() {
+   bloadCurrentGameWeekPoints() {
     console.log("Loading current gameweek points")
-    fetch("https://fantasy.premierleague.com/drf/event/10/live", {
+    fetch("http://localhost:8080/event/10", {
       headers: {
         "X-Requested-With": "true"
       },
     })
       .then(response => response.json())
-      .then(result => this.setAllScores(result))
       .then(result => this.calculateGameWeekScoreForEachLeagueMember())
       .catch(error => console.log(error));
   }
@@ -164,14 +96,6 @@ class App extends Component {
       .catch(error => console.log(error));
   }
 
-  setLeagueData(league) {
-    var myMap = new Map()
-    for (var i = 0; i < league.standings.results.length; i++) {
-      myMap.set(league.standings.results[i].id, league.standings.results[i])
-    }
-    this.setState({ league });
-  }
-
   calculateTableValues() {
     //first get league table
     var that = this;
@@ -182,8 +106,7 @@ class App extends Component {
         that.setState({ league });
         console.log(that.state.league)
       })
-      // .then(result => this.setLeagueData(result))
-      // // .then(result => this.loadCurrentGameWeekPoints())
+      .then(result => this.loadCurrentGameWeekPoints())
       .catch(error => console.log(error));
   }
 
@@ -196,7 +119,6 @@ class App extends Component {
   }
 
   componentDidMount() {
-    this.loadCurrentGameweekEvent(10);
   }
 
   render() {
