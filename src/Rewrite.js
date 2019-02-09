@@ -13,9 +13,10 @@ import SearchBar from 'material-ui-search-bar'
 
 
 
-const PATH_BASE = 'http://localhost:8080'
+const PATH_BASE = 'http://192.168.1.117:8080'
 const PATH_LEAGUE = '/league/670123'
-const PATH_GAMEWEEK = '/entry/4309204/event/'
+const CURRENT_GAMEWEEK_EVENT = '/event/'
+const CURRENT_GAMEWEEK = '/currentGameweek'
 
 const styles = theme => ({
   root: {
@@ -31,12 +32,14 @@ const styles = theme => ({
 class App extends Component {
   constructor(props) {
     super(props);
-    this.getAllScores = this.getAllScores.bind(this);
-    this.setPicks = this.setPicks.bind(this);
+    this.loadCurrentGameweekPointsForEachUser = this.loadCurrentGameweekPointsForEachUser.bind(this);
+    this.loadCurrentGameweekPicksForEachLeagueMember = this.loadCurrentGameweekPicksForEachLeagueMember.bind(this);
+    this.calculateCurrentGameweekScoreForEachLeagueMember = this.calculateCurrentGameweekScoreForEachLeagueMember.bind(this);
     this.state = {
-      currentGameweek: 10,
+      currentGameweek: null,
       currentGameweekPicks: {},
-      curretGameweekPoints: null,
+      currentGameweekPoints: null,
+      currentGameweek: {},
       currentGameweekEvent: {},
       userCurrentGameweekMap: {},
       lastGameweekScore: {},
@@ -44,40 +47,78 @@ class App extends Component {
     };
   }
 
-  setPicks(userId, result) {
-    var picks = result.picks;
-    this.state.currentGameweekPicks[userId] = picks;
-    console.log("Picks Loaded");
+  setCurrentGameweekPicksForEachLeagueMember(currentGameweekPicks, i){
+    var tempState = this.state.league;
+      tempState.standings.results[i]["currentGameweekPicks"] = currentGameweekPicks;
+      this.setState({ league: tempState })
+      console.log(this.state);
   }
 
-   bloadCurrentGameWeekPoints() {
-    console.log("Loading current gameweek points")
-    fetch("http://localhost:8080/event/10", {
-      headers: {
-        "X-Requested-With": "true"
-      },
-    })
-      .then(response => response.json())
-      .then(result => this.calculateGameWeekScoreForEachLeagueMember())
-      .catch(error => console.log(error));
+  loadCurrentGameweekPicksForEachLeagueMember(id, i){
+    return fetch(`${PATH_BASE}` + '/entry/' + id + '/' + this.state.currentGameweek.currentGameweek)
+    .then(response => response.json())
+    .then(result => this.setCurrentGameweekPicksForEachLeagueMember(result, i))
+    .then(result => this.calculateCurrentGameweekScoreForEachLeagueMember(i))
+    .catch(error => console.log(error));
   }
 
-  loadPreviousGameWeekPoints(element) {
-    console.log("Loading previous gameweek points")
-    fetch(`${PATH_BASE}` + '/entry/' + element.entry + '/event/9/picks', {
-      headers: {
-        "X-Requested-With": "true"
-      },
-    })
-      .then(response => response.json())
-      .then(result => this.setLastWeekScore(element.entry, result))
-      .catch(error => console.log(error));
+  calculateCurrentGameweekScoreForEachLeagueMember(j){
+    var gameweekScore = 0;
+    for(var i = 0; i < 11; i++){
+      var pick = this.state.league.standings.results[j].currentGameweekPicks.picks[i];
+      var points = this.state.currentGameweekEvent.elements[pick.element].stats.total_points;
+      gameweekScore += points * pick.multiplier;
+    }
+    var tempState = this.state.league;
+    tempState.standings.results[j]["current_gameweek_points"] = gameweekScore;
+    this.setState({ league: tempState })
+    console.log("Gameweek score is " + gameweekScore);
+  }
+
+  loadCurrentGameweekPointsForEachUser(){
+    for (var i = 0; i < this.state.league.standings.results.length; i++) {
+      this.loadCurrentGameweekPicksForEachLeagueMember(this.state.league.standings.results[i].entry, i);
+      // this.calculateCurrentGameweekScoreForEachLeagueMember(this.state.league.standings.results[i].entry);
+    }
+  }
+
+  async loadLeagueData() {
+    let leagueDataResponse = await fetch(`${PATH_BASE}${PATH_LEAGUE}`);
+    let league = await leagueDataResponse.json();
+    this.setState({ league });
+  }
+
+  calculateTableValues() {
+    this.loadLeagueData()
+      .then(this.loadCurrentGameweekPointsForEachUser)
+  }
+
+  setCurrentGameweekNumber(currentGameweek){
+    this.setState({currentGameweek})
+  }
+
+  setCurrentGameweekEvent(currentGameweekEvent){
+    this.setState({currentGameweekEvent})
+  }
+
+  async preload(){
+    let currentGameweekNumberResponse = await fetch(`${PATH_BASE}${CURRENT_GAMEWEEK}`);
+    let currentGameweekNumber = await currentGameweekNumberResponse.json();
+    this.setCurrentGameweekNumber(currentGameweekNumber);
+
+    let currentGameweekEventResponse = await fetch(`${PATH_BASE}${CURRENT_GAMEWEEK_EVENT}` + this.state.currentGameweek.currentGameweek);
+    let currentGameweekEvent = await currentGameweekEventResponse.json();
+    this.setCurrentGameweekEvent(currentGameweekEvent);
+  }
+
+  componentDidMount() {
+    this.preload();
   }
 
   searchButton() {
     return (
       <SearchBar
-        onChange={() => console.log('onChange')}
+        onChange={() => console.log(this.state)}
         onRequestSearch={() => this.calculateTableValues()}
         style={{
           margin: '0 auto',
@@ -85,40 +126,6 @@ class App extends Component {
         }}
       />
     );
-  }
-
-
-  getAllScores(element) {
-    console.log("Getting gameweek for " + element.entry_name);
-    fetch(`${PATH_BASE}` + '/entry/' + element.entry + '/event/' + this.state.currentGameweek + '/picks')
-      .then(response => response.json())
-      .then(result => this.setPicks(element.entry, result))
-      .catch(error => console.log(error));
-  }
-
-  calculateTableValues() {
-    //first get league table
-    var that = this;
-    fetch(`${PATH_BASE}${PATH_LEAGUE}`)
-      .then(response => response.json())
-      .then(function(league) {
-        console.log("Setting league data on state")
-        that.setState({ league });
-        console.log(that.state.league)
-      })
-      .then(result => this.loadCurrentGameWeekPoints())
-      .catch(error => console.log(error));
-  }
-
-  getLeagueData() {
-    fetch(`${PATH_BASE}${PATH_LEAGUE}`)
-      .then(response => response.json())
-      .then(result => this.setLeagueData(result))
-      // .then(result => this.loadCurrentGameWeekPoints())
-      .catch(error => console.log(error));
-  }
-
-  componentDidMount() {
   }
 
   render() {
@@ -148,9 +155,9 @@ class App extends Component {
                       {item.entry_name}
                     </TableCell>
                     <TableCell numeric>{item.player_name}</TableCell>
-                    <TableCell numeric>{item.last_gameweek_points}</TableCell>
+                    <TableCell numeric>{item.total - item.event_total}</TableCell>
                     <TableCell numeric>{item.current_gameweek_points}</TableCell>
-                    <TableCell numeric>{item.current_gameweek_points + item.last_gameweek_points}</TableCell>
+                    <TableCell numeric>{item.total - item.event_total + item.current_gameweek_points}</TableCell>
                   </TableRow>
                 );
               })}
