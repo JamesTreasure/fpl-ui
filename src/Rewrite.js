@@ -13,7 +13,7 @@ import SearchBar from 'material-ui-search-bar'
 
 
 
-const PATH_BASE = 'http://192.168.1.117:8080'
+const PATH_BASE = 'https://fpl-spring-boot.herokuapp.com/'
 const PATH_LEAGUE = '/league/670123'
 const CURRENT_GAMEWEEK_EVENT = '/event/'
 const CURRENT_GAMEWEEK = '/currentGameweek'
