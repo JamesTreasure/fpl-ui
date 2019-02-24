@@ -23,3 +23,16 @@ button:hover { color: #222;
 }
 *:focus { outline: none;
 }
+
+#wrapper {
+
+}
+
+#one {
+  width: 50%;
+  float: left;
+}
+#two { 
+  width: 50%;
+  float: left;
+}
