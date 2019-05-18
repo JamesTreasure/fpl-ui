@@ -11,6 +11,7 @@ import Paper from '@material-ui/core/Paper';
 import TextField from '@material-ui/core/TextField';
 import SearchBar from 'material-ui-search-bar'
 import Button from '@material-ui/core/Button';
+import Grid from '@material-ui/core/Grid';
 
 
 
@@ -171,6 +172,7 @@ class App extends Component {
 
     return (
       <div className="App">
+        <Grid container spacing={16}></Grid>
         <div class="wrapper">
         <div id = "one">{this.searchButton()}</div>
         <div id = "two">{this.randomButton()}</div>
