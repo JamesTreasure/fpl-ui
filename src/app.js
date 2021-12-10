@@ -141,31 +141,33 @@ class App extends Component {
                 ? _.find(temp.fixtures, { team_h: pick.player.team })
                 : _.find(temp.fixtures, { team_a: pick.player.team });
 
-              const fixtureKickOffTime = new Date(fixture.kickoff_time);
-              fixtureKickOffTime.setHours(0, 0, 0, 0);
+              if (fixture) {
+                const fixtureKickOffTime = new Date(fixture.kickoff_time);
+                fixtureKickOffTime.setHours(0, 0, 0, 0);
 
-              if (fixture.started) {
-                const homeBps = _.chain(fixture.stats)
-                  .find({ identifier: "bps" })
-                  .value()["h"];
-                const awayBps = _.chain(fixture.stats)
-                  .find({ identifier: "bps" })
-                  .value()["a"];
-                const allBps = _.reverse(
-                  _.sortBy(_.concat(homeBps, awayBps), "value")
-                );
-                const eventStatus = _.find(temp.eventStatus.status, {
-                  jsDate: fixtureKickOffTime,
-                });
-                var liveBonus = 0;
-                if (!eventStatus.bonus_added) {
-                  liveBonus = this.calculateLiveBonus(allBps, pick);
+                if (fixture.started) {
+                  const homeBps = _.chain(fixture.stats)
+                    .find({ identifier: "bps" })
+                    .value()["h"];
+                  const awayBps = _.chain(fixture.stats)
+                    .find({ identifier: "bps" })
+                    .value()["a"];
+                  const allBps = _.reverse(
+                    _.sortBy(_.concat(homeBps, awayBps), "value")
+                  );
+                  const eventStatus = _.find(temp.eventStatus.status, {
+                    jsDate: fixtureKickOffTime,
+                  });
+                  var liveBonus = 0;
+                  if (!eventStatus.bonus_added) {
+                    liveBonus = this.calculateLiveBonus(allBps, pick);
+                  }
+
+                  totalPoints =
+                    totalPoints +
+                    liveBonus +
+                    element.stats.total_points * pick.multiplier;
                 }
-
-                totalPoints =
-                  totalPoints +
-                  liveBonus +
-                  element.stats.total_points * pick.multiplier;
               }
             }
           })
@@ -182,6 +184,7 @@ class App extends Component {
                       ...res,
                       current_gameweek_points: totalPoints,
                       player_pick: playerPick,
+                      live_total: res.total + totalPoints,
                     }
                   : res
               ),
@@ -267,11 +270,17 @@ class App extends Component {
               <div className="ag-theme-alpine-dark">
                 <AgGridReact
                   gridOptions={gridOptions}
-                  rowData={this.state.league.standings.results}
+                  rowData={_.sortBy(this.state.league.standings.results, [
+                    "live_total",
+                  ]).reverse()}
                   domLayout={"autoHeight"}
                   onGridReady={this.onGridReady}
                 >
-                  <AgGridColumn field="rank" headerName="Rank"></AgGridColumn>
+                  <AgGridColumn
+                    field="rank"
+                    headerName="Rank"
+                    valueGetter={getRowIndex}
+                  ></AgGridColumn>
                   <AgGridColumn
                     field="last_rank"
                     headerName="Previous Rank"
@@ -288,7 +297,7 @@ class App extends Component {
                     filter="agTextColumnFilter"
                   ></AgGridColumn>
                   <AgGridColumn
-                    field="total"
+                    field="live_total"
                     headerName="Total Points"
                     sortable={true}
                   ></AgGridColumn>
@@ -339,11 +348,7 @@ function flagRenderer(params) {
   console.log(params.value + " : " + country);
   const element = document.createElement("span");
   const imageElement = document.createElement("img");
-  const imgSrc = process.env.PUBLIC_URL + "/" + country + ".svg";
-  console.log(imgSrc);
-  imageElement.width = 24;
-  imageElement.height = 24;
-  imageElement.src = imgSrc;
+  imageElement.src = "./flags/" + country + ".svg";;
   imageElement.style.cssText =
     "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
 
@@ -354,10 +359,14 @@ function flagRenderer(params) {
 
 function getCaptain(params) {
   const captain_id = _.find(params.data.player_pick.picks, {
-    is_vice_captain: true,
+    is_captain: true,
   }).element;
   return _.find(params.context.state.about.elements, { id: captain_id })
     .web_name;
+}
+
+function getRowIndex(params) {
+  return params.node.rowIndex + 1;
 }
 
 function getViceCaptain(params) {
