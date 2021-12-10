@@ -2,7 +2,7 @@
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
-  "homepage": "http://jamestreasure.github.io/fpl-ui",
+  "homepage": "http://jamestreasure.github.io/fpl-ui/",
   "dependencies": {
     "@material-ui/core": "^3.6.0",
     "@material-ui/icons": "^3.0.1",
@@ -26,6 +26,6 @@
     "deploy": "gh-pages -d build"
   },
   "devDependencies": {
-    "gh-pages": "^2.0.1"
+    "gh-pages": "^2.2.0"
   }
 }
