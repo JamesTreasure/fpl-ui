@@ -348,7 +348,9 @@ function flagRenderer(params) {
   console.log(params.value + " : " + country);
   const element = document.createElement("span");
   const imageElement = document.createElement("img");
-  imageElement.src = "./flags/" + country + ".svg";;
+  imageElement.src = process.env.PUBLIC_URL + country + ".svg";
+  imageElement.width = 24;
+  imageElement.height = 24;
   imageElement.style.cssText =
     "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
 
