@@ -359,10 +359,10 @@ function getCaptain(params) {
 }
 
 function getViceCaptain(params) {
-  const captain_id = _.find(params?.data?.player_pick?.picks, {
+  const captain_id = _.find(params.data.player_pick.picks, {
     is_vice_captain: true,
   }).element;
-  return _.find(params?.context?.state?.about?.elements, { id: captain_id })
+  return _.find(params.context.state.about.elements, { id: captain_id })
     .web_name;
 }
 
