@@ -1,154 +1,218 @@
-import React, { Component } from 'react';
-import './App.css';
-import PropTypes from 'prop-types';
-import { withStyles } from '@material-ui/core/styles';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import Paper from '@material-ui/core/Paper';
-import TextField from '@material-ui/core/TextField';
-import SearchBar from 'material-ui-search-bar'
-import Button from '@material-ui/core/Button';
-import Grid from '@material-ui/core/Grid';
+import React, { Component } from "react";
+import SearchBar from "material-ui-search-bar";
+import Button from "@material-ui/core/Button";
+import { AgGridColumn, AgGridReact } from "ag-grid-react";
+import "./ag-grid.css";
+import "./ag-theme-alpine.css";
+import "./style.css";
 
+import "ag-grid-community/dist/styles/ag-grid.css";
+import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
+import _ from "lodash";
 
-
-const PATH_BASE = 'https://fpl-spring-boot.herokuapp.com/'
-const PATH_LEAGUE = '/league/'
-const CURRENT_GAMEWEEK_EVENT = '/event/'
-const CURRENT_GAMEWEEK = '/currentGameweek'
-
-const styles = theme => ({
-  root: {
-    width: '100%',
-    marginTop: theme.spacing.unit * 3,
-    overflowX: 'auto',
-  },
-  table: {
-    minWidth: 700,
-  },
-});
+const PATH_BASE = "http://localhost:8080/";
+const PATH_LEAGUE = "/league/";
+const PATH_ENTRY = "/entry/";
+const CURRENT_GAMEWEEK_EVENT = "/event/";
+const FIXTURES = "/fixtures/";
+const EVENT_STATUS = "/event-status/";
+const ABOUT = "about";
+const TRANSFERS = "/transfers/";
 
 class App extends Component {
   constructor(props) {
     super(props);
-    this.loadCurrentGameweekPointsForEachUser = this.loadCurrentGameweekPointsForEachUser.bind(this);
-    this.loadCurrentGameweekPicksForEachLeagueMember = this.loadCurrentGameweekPicksForEachLeagueMember.bind(this);
-    this.calculateCurrentGameweekScoreForEachLeagueMember = this.calculateCurrentGameweekScoreForEachLeagueMember.bind(this);
     this.state = {
-      leagueId: '', 
-      currentGameweek: null,
-      currentGameweekPicks: {},
-      currentGameweekPoints: null,
       currentGameweek: {},
-      currentGameweekEvent: {},
-      userCurrentGameweekMap: {},
-      lastGameweekScore: {},
-      league: {}
+      fixtures: {},
+      about: {},
+      event: {},
+      leagueId: null,
+      league: {},
+      playerPicks: {},
+      loaded: false,
+      eventStatus: {},
     };
   }
 
-  setCurrentGameweekPicksForEachLeagueMember(currentGameweekPicks, i){
-    var tempState = this.state.league;
-      tempState.standings.results[i]["currentGameweekPicks"] = currentGameweekPicks;
-      this.setState({ league: tempState })
-      console.log(this.state);
+  async preload() {
+    await this.getCurrentGameweek();
+    await this.getEvent();
+    await this.getEventStatus();
+    await this.getFixtures();
   }
 
-  loadCurrentGameweekPicksForEachLeagueMember(id, i){
-    return fetch(`${PATH_BASE}` + '/entry/' + id + '/' + this.state.currentGameweek.currentGameweek)
-    .then(response => response.json())
-    .then(result => this.setCurrentGameweekPicksForEachLeagueMember(result, i))
-    .then(result => this.calculateCurrentGameweekScoreForEachLeagueMember(i))
-    .catch(error => console.log(error));
+  async getFixtures() {
+    const fixtureResponse = await fetch(
+      `${PATH_BASE}${FIXTURES}` + this.state.currentGameweek.id
+    );
+    const fixtures = await fixtureResponse.json();
+    this.setState({ fixtures: fixtures });
   }
 
-  calculateCurrentGameweekScoreForEachLeagueMember(j){
-    var gameweekScore = 0;
-    var liveBonusPoints = 0;
-    for(var i = 0; i < 11; i++){
-      var pick = this.state.league.standings.results[j].currentGameweekPicks.picks[i];
-      var points = this.state.currentGameweekEvent.elements[pick.element].stats.total_points;
-      gameweekScore += points * pick.multiplier;
+  async getEventStatus() {
+    const eventStatusResponse = await fetch(`${PATH_BASE}${EVENT_STATUS}`);
+    const eventStatus = await eventStatusResponse.json();
+    _.forEach(eventStatus.status, (value) => {
+      value["jsDate"] = new Date(value.date);
+    });
+    this.setState({ eventStatus: eventStatus });
+  }
+
+  async getEvent() {
+    const eventResponse = await fetch(
+      `${PATH_BASE}${CURRENT_GAMEWEEK_EVENT}` + this.state.currentGameweek.id
+    );
+    const event = await eventResponse.json();
+    this.setState({ event: event });
+  }
+
+  async getCurrentGameweek() {
+    const aboutResponse = await fetch(`${PATH_BASE}${ABOUT}`);
+    const about = await aboutResponse.json();
+    var currentGameweek = _.filter(about.events, {
+      is_current: true,
+    })[0];
+
+    this.setState({ about: about, currentGameweek: currentGameweek });
+    return currentGameweek;
+  }
+
+  async search() {
+    this.setState({ loaded: false });
+    const leagueResponse = await fetch(
+      `${PATH_BASE}${PATH_LEAGUE}` + this.state.leagueId
+    );
+    const league = await leagueResponse.json();
+    this.setState({ league: league });
+
+    const entryMap = {};
+
+    const settings = {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(_.map(league.standings.results, "entry")),
+    };
+
+    const playerPicksResponse = await fetch(
+      `${PATH_BASE}${PATH_ENTRY}` + this.state.currentGameweek.id,
+      settings
+    );
+    const playerPicks = await playerPicksResponse.json();
+
+    const transfersResponse = await fetch(`${PATH_BASE}${TRANSFERS}`, settings);
+    const transfers = await transfersResponse.json();
+
+    const entryResponse = await fetch(`${PATH_BASE}${PATH_ENTRY}`, settings);
+    const entry = await entryResponse.json();
+
+    _.forEach(playerPicks, (playerPick) => {
+      _.chain(playerPick.picks)
+        .forEach((pick, key) => {
+          const player = _.find(this.state.about.elements, {
+            id: pick.element,
+          });
+          playerPick.picks[key]["player"] = player;
+        })
+        .value();
+      entryMap[playerPick.user_id] = playerPick;
+      entryMap[playerPick.user_id]["transfers"] = transfers[playerPick.user_id];
+      entryMap[playerPick.user_id]["metadata"] = entry[playerPick.user_id];
+    });
+
+    this.setState({ playerPicks: entryMap });
+
+    _.chain(this.state.playerPicks)
+      .forEach((playerPick, playerId) => {
+        let totalPoints = 0;
+        _.chain(playerPick.picks)
+          .forEach((pick) => {
+            if (pick.position <= 11) {
+              const temp = this.state;
+              const element = _.find(this.state.event.elements, {
+                id: pick.element,
+              });
+              const fixture = _.find(temp.fixtures, {
+                team_h: pick.player.team,
+              })
+                ? _.find(temp.fixtures, { team_h: pick.player.team })
+                : _.find(temp.fixtures, { team_a: pick.player.team });
+
+              const fixtureKickOffTime = new Date(fixture.kickoff_time);
+              fixtureKickOffTime.setHours(0, 0, 0, 0);
+
+              if (fixture.started) {
+                const homeBps = _.chain(fixture.stats)
+                  .find({ identifier: "bps" })
+                  .value()["h"];
+                const awayBps = _.chain(fixture.stats)
+                  .find({ identifier: "bps" })
+                  .value()["a"];
+                const allBps = _.reverse(
+                  _.sortBy(_.concat(homeBps, awayBps), "value")
+                );
+                const eventStatus = _.find(temp.eventStatus.status, {
+                  jsDate: fixtureKickOffTime,
+                });
+                var liveBonus = 0;
+                if (!eventStatus.bonus_added) {
+                  liveBonus = this.calculateLiveBonus(allBps, pick);
+                }
+
+                totalPoints =
+                  totalPoints +
+                  liveBonus +
+                  element.stats.total_points * pick.multiplier;
+              }
+            }
+          })
+          .value();
+
+        this.setState((prevState) => ({
+          league: {
+            ...prevState.league,
+            standings: {
+              ...prevState.league.standings,
+              results: prevState.league.standings.results.map((res) =>
+                res.entry == playerId
+                  ? {
+                      ...res,
+                      current_gameweek_points: totalPoints,
+                      player_pick: playerPick,
+                    }
+                  : res
+              ),
+            },
+          },
+        }));
+      })
+      .value();
+
+    this.setState({ loaded: true });
+  }
+
+  calculateLiveBonus(allBps, pick) {
+    const arrayIndex = _.findIndex(allBps, { element: pick.element });
+    if (arrayIndex === 0) return 3;
+    if (arrayIndex === 1) {
+      return allBps[1].value === allBps[0].value ? 3 : 2;
     }
-    var tempState = this.state.league;
-    tempState.standings.results[j]["current_gameweek_points"] = gameweekScore;
-    this.setState({ league: tempState })
-    console.log("Gameweek score is " + gameweekScore);
-  }
-
-  loadCurrentGameweekPointsForEachUser(){
-    for (var i = 0; i < this.state.league.standings.results.length; i++) {
-      this.loadCurrentGameweekPicksForEachLeagueMember(this.state.league.standings.results[i].entry, i);
+    if (arrayIndex === 2) {
+      if (allBps[2].value === allBps[0].value) return 3;
+      return allBps[2].value === allBps[1].value ? 2 : 2;
     }
-  }
-
-  async loadLeagueData() {
-    let leagueDataResponse = await fetch(`${PATH_BASE}${PATH_LEAGUE}`+ this.state.leagueId);
-    let league = await leagueDataResponse.json();
-    this.setState({ league });
-  }
-
-  calculateTableValues() {
-    if(this.state.leagueId != null && this.state.leagueId.size > 0){
-      localStorage.setItem("leagueId", this.state.leagueId);
-    }
-    this.loadLeagueData()
-      .then(this.loadCurrentGameweekPointsForEachUser)
-  }
-
-  setCurrentGameweekNumber(currentGameweek){
-    this.setState({currentGameweek})
-  }
-
-  setCurrentGameweekEvent(currentGameweekEvent){
-    for(var i = 0; i < currentGameweekEvent.fixtures.length; i++){
-      // if(!currentGameweekEvent.fixtures[i].finished && currentGameweekEvent.fixtures[i].started){
-      if(currentGameweekEvent.fixtures[i].finished && currentGameweekEvent.fixtures[i].started){
-        var bonusPoints = {};
-        let homeBonusPoints = currentGameweekEvent.fixtures[i].stats[9]["bps"]["a"];
-        let awayBonusPoints = currentGameweekEvent.fixtures[i].stats[9]["bps"]["a"];
-        for (let [key, value] of Object.entries(homeBonusPoints)) {
-          bonusPoints[value["element"]] = value["value"];
-          console.log(key, value);
-        }
-        for (let [key, value] of Object.entries(awayBonusPoints)) {
-          bonusPoints[value["element"]] = value["value"];
-          console.log(key, value);
-        }
-        currentGameweekEvent.fixtures[i].stats[9]["bps"]["a"]
-      }
-    }
-    this.setState({currentGameweekEvent})
-    
-  }
-
-  async preload(){
-    let currentGameweekNumberResponse = await fetch(`${PATH_BASE}${CURRENT_GAMEWEEK}`);
-    let currentGameweekNumber = await currentGameweekNumberResponse.json();
-    this.setCurrentGameweekNumber(currentGameweekNumber);
-
-    let currentGameweekEventResponse = await fetch(`${PATH_BASE}${CURRENT_GAMEWEEK_EVENT}` + this.state.currentGameweek.currentGameweek);
-    let currentGameweekEvent = await currentGameweekEventResponse.json();
-    this.setCurrentGameweekEvent(currentGameweekEvent);
-
-    if(localStorage.leagueId != null && localStorage.leagueId.length > 0){
-      this.setState({leagueId:localStorage.leagueId})
-      this.calculateTableValues();
-    }
+    return 0;
   }
 
   componentDidMount() {
     this.preload();
   }
 
-  randomButton(){
-    return (
-    <Button variant="contained">
-    Default
-  </Button>)
+  randomButton() {
+    return <Button variant="contained">Default</Button>;
   }
 
   searchButton() {
@@ -156,60 +220,168 @@ class App extends Component {
       <SearchBar
         placeholder={this.state.leagueId}
         value={this.state.value}
-        onChange={(query) => {this.setState({leagueId:query})}}
-        onRequestSearch={() => this.calculateTableValues()}
+        onChange={(query) => {
+          this.setState({ leagueId: query });
+        }}
+        onRequestSearch={() => this.search()}
         style={{
-          margin: '5 5 5 5'
+          margin: "5 5 5 5",
+          width: "50%",
         }}
       />
     );
   }
 
-  render() {
-    if (this.state.currentGameweek == null || this.state.currentGameweekEvent == null || this.state.league.standings == null) {
-      return this.searchButton();
-    }
+  onGridReady = (params) => {
+    this.gridApi = params.api;
+    this.gridColumnApi = params.columnApi;
+    this.gridApi.sizeColumnsToFit();
+  };
 
+  render() {
+    var gridOptions = {
+      context: {
+        state: this.state,
+      },
+    };
     return (
-      <div className="App">
-        <Grid container spacing={16}></Grid>
-        <div class="wrapper">
-        <div id = "one">{this.searchButton()}</div>
-        <div id = "two">{this.randomButton()}</div>
+      <div className="body">
+        <div className="searchBar">
+          <SearchBar
+            placeholder={this.state.leagueId}
+            value={this.state.value}
+            onChange={(query) => {
+              this.setState({ leagueId: query });
+            }}
+            onRequestSearch={() => this.search()}
+            style={{
+              margin: "5 5 5 5",
+              width: "100%",
+            }}
+          />
         </div>
-        <Paper>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Team Name</TableCell>
-                <TableCell numeric>Player Name</TableCell>
-                <TableCell numeric>Points Before Current Gameweek</TableCell>
-                <TableCell numeric>Current Gameweek Points</TableCell>
-                <TableCell numeric>Live Bonus Points</TableCell>
-                <TableCell numeric>Total Points</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {this.state.league.standings.results.map(item => {
-                return (
-                  <TableRow key={item.entry_name}>
-                    <TableCell component="th" scope="row">
-                      {item.entry_name}
-                    </TableCell>
-                    <TableCell numeric>{item.player_name}</TableCell>
-                    <TableCell numeric>{item.total - item.event_total}</TableCell>
-                    <TableCell numeric>{item.current_gameweek_points}</TableCell>
-                    <TableCell numeric>{item.live_bonus_points}</TableCell>
-                    <TableCell numeric>{item.total - item.event_total + item.current_gameweek_points}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Paper>
-      </div>)
-      ;
+        <div className="grid">
+          {this.state.loaded ? (
+            <div>
+              <div className="toolbar"></div>
+              <div className="ag-theme-alpine-dark">
+                <AgGridReact
+                  gridOptions={gridOptions}
+                  rowData={this.state.league.standings.results}
+                  domLayout={"autoHeight"}
+                  onGridReady={this.onGridReady}
+                >
+                  <AgGridColumn field="rank" headerName="Rank"></AgGridColumn>
+                  <AgGridColumn
+                    field="last_rank"
+                    headerName="Previous Rank"
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    cellRenderer={flagRenderer}
+                    field="player_name"
+                    headerName="Player"
+                    filter="agTextColumnFilter"
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="entry_name"
+                    headerName="Team Name"
+                    filter="agTextColumnFilter"
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="total"
+                    headerName="Total Points"
+                    sortable={true}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="current_gameweek_points"
+                    headerName="GW Points"
+                    sortable={true}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="captain"
+                    headerName="Captain"
+                    valueGetter={getCaptain}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="vice_captain"
+                    headerName="Vice Captain"
+                    valueGetter={getViceCaptain}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="transfersout"
+                    headerName="Transfers Out"
+                    valueGetter={getTransfersOut}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="transfersIn"
+                    headerName="Transfers In"
+                    valueGetter={getTransfersIn}
+                  ></AgGridColumn>
+                </AgGridReact>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
   }
+}
+
+function createApp(props) {
+  return new App(props);
+}
+
+function flagRenderer(params) {
+  const playerId = params.data.entry;
+  const country =
+    params.context.state.playerPicks[playerId].metadata
+      .player_region_iso_code_short;
+  console.log(params.value + " : " + country);
+  const element = document.createElement("span");
+  const imageElement = document.createElement("img");
+  imageElement.width = 24;
+  imageElement.height = 24;
+  imageElement.src = "/flags/" + country + ".svg";
+  imageElement.style.cssText =
+    "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
+
+  element.appendChild(document.createTextNode(params.value));
+  element.appendChild(imageElement);
+  return element;
+}
+
+function getCaptain(params) {
+  const captain_id = _.find(params.data.player_pick.picks, {
+    is_vice_captain: true,
+  }).element;
+  return _.find(params.context.state.about.elements, { id: captain_id })
+    .web_name;
+}
+
+function getViceCaptain(params) {
+  const captain_id = _.find(params?.data?.player_pick?.picks, {
+    is_vice_captain: true,
+  }).element;
+  return _.find(params?.context?.state?.about?.elements, { id: captain_id })
+    .web_name;
+}
+
+function getTransfersIn(params) {
+  return _.chain(params.data.player_pick.transfers)
+    .filter({ event: params.context.state.currentGameweek.id })
+    .map("element_in")
+    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
+    .value()
+    .join(", ");
+}
+
+function getTransfersOut(params) {
+  return _.chain(params.data.player_pick.transfers)
+    .filter({ event: params.context.state.currentGameweek.id })
+    .map("element_out")
+    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
+    .value()
+    .join(", ");
 }
 
 export default App;
