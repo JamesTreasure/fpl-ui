@@ -10,7 +10,7 @@ import "ag-grid-community/dist/styles/ag-grid.css";
 import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
 import _ from "lodash";
 
-const PATH_BASE = "http://localhost:8080/";
+const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
 const PATH_LEAGUE = "/league/";
 const PATH_ENTRY = "/entry/";
 const CURRENT_GAMEWEEK_EVENT = "/event/";
@@ -172,7 +172,6 @@ class App extends Component {
             }
           })
           .value();
-
         this.setState((prevState) => ({
           league: {
             ...prevState.league,
@@ -184,7 +183,10 @@ class App extends Component {
                       ...res,
                       current_gameweek_points: totalPoints,
                       player_pick: playerPick,
-                      live_total: res.total + totalPoints,
+                      live_total:
+                        res.total +
+                        totalPoints -
+                        playerPick.entry_history.event_transfers_cost,
                     }
                   : res
               ),
@@ -279,11 +281,16 @@ class App extends Component {
                   <AgGridColumn
                     field="rank"
                     headerName="Rank"
-                    valueGetter={getRowIndex}
+                    cellRenderer={getRowIndex}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="last_rank"
                     headerName="Previous Rank"
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="change"
+                    headerName="Change"
+                    cellRenderer={getChange}
                   ></AgGridColumn>
                   <AgGridColumn
                     cellRenderer={flagRenderer}
@@ -315,6 +322,11 @@ class App extends Component {
                     field="vice_captain"
                     headerName="Vice Captain"
                     valueGetter={getViceCaptain}
+                  ></AgGridColumn>
+                  <AgGridColumn
+                    field="hits"
+                    headerName="Hits"
+                    valueGetter={getHits}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="transfersout"
@@ -369,6 +381,40 @@ function getCaptain(params) {
 
 function getRowIndex(params) {
   return params.node.rowIndex + 1;
+}
+
+function getChange(params) {
+  const element = document.createElement("span");
+  const imageElement = document.createElement("img");
+
+  const positionChange = params.data.last_rank - (params.node.rowIndex + 1);
+  if (positionChange !== 0) {
+    var div = document.createElement("div");
+    div.innerText = Math.abs(positionChange);
+    div.style.cssText =
+      "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:40px";
+    element.appendChild(div);
+  }
+
+  imageElement.width = 24;
+  imageElement.height = 24;
+  imageElement.style.cssText =
+    "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
+
+  if (positionChange > 0) {
+    imageElement.src = process.env.PUBLIC_URL + "up-arrow.svg";
+  } else if (positionChange < 0) {
+    imageElement.src = process.env.PUBLIC_URL + "down-arrow.svg";
+  } else {
+    imageElement.src = process.env.PUBLIC_URL + "equals.svg";
+  }
+  element.appendChild(imageElement);
+
+  return element;
+}
+
+function getHits(params) {
+  return params.data.player_pick.entry_history.event_transfers_cost;
 }
 
 function getViceCaptain(params) {

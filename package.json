@@ -26,6 +26,8 @@
     "deploy": "gh-pages -d build"
   },
   "devDependencies": {
+    "@iconify/icons-mdi": "^1.1.42",
+    "@iconify/react": "^3.1.0",
     "gh-pages": "^2.2.0"
   }
 }
