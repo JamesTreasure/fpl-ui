@@ -5,11 +5,12 @@ import { AgGridColumn, AgGridReact } from "ag-grid-react";
 import "./ag-grid.css";
 import "./ag-theme-alpine.css";
 import "./style.css";
-import { useHistory } from 'react-router-dom';
+import { useHistory } from "react-router-dom";
 
 import "ag-grid-community/dist/styles/ag-grid.css";
 import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
 import _ from "lodash";
+import {withRouter} from 'react-router';
 
 const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
 const PATH_LEAGUE = "/league/";
@@ -28,11 +29,11 @@ class League extends Component {
       fixtures: {},
       about: {},
       event: {},
-      leagueId: null,
+      leagueId: this.props.match.params.leagueId,
       league: {},
       playerPicks: {},
       loaded: false,
-      eventStatus: {},
+      eventStatus: {}
     };
   }
 
@@ -41,6 +42,9 @@ class League extends Component {
     await this.getEvent();
     await this.getEventStatus();
     await this.getFixtures();
+    if(this.state.leagueId){
+      await this.search();
+    }
   }
 
   async getFixtures() {
@@ -54,7 +58,7 @@ class League extends Component {
   async getEventStatus() {
     const eventStatusResponse = await fetch(`${PATH_BASE}${EVENT_STATUS}`);
     const eventStatus = await eventStatusResponse.json();
-    _.forEach(eventStatus.status, (value) => {
+    _.forEach(eventStatus.status, value => {
       value["jsDate"] = new Date(value.date);
     });
     this.setState({ eventStatus: eventStatus });
@@ -72,7 +76,7 @@ class League extends Component {
     const aboutResponse = await fetch(`${PATH_BASE}${ABOUT}`);
     const about = await aboutResponse.json();
     var currentGameweek = _.filter(about.events, {
-      is_current: true,
+      is_current: true
     })[0];
 
     this.setState({ about: about, currentGameweek: currentGameweek });
@@ -82,9 +86,7 @@ class League extends Component {
   async search() {
     this.setState({ loaded: false });
     let leagueId = this.state.leagueId;
-    const leagueResponse = await fetch(
-      `${PATH_BASE}${PATH_LEAGUE}` + leagueId
-    );
+    const leagueResponse = await fetch(`${PATH_BASE}${PATH_LEAGUE}` + leagueId);
     const league = await leagueResponse.json();
     this.setState({ league: league });
 
@@ -104,11 +106,11 @@ class League extends Component {
     const entryResponse = await fetch(`${PATH_BASE}${PATH_ENTRY}`, settings);
     const entry = await entryResponse.json();
 
-    _.forEach(playerPicks, (playerPick) => {
+    _.forEach(playerPicks, playerPick => {
       _.chain(playerPick.picks)
         .forEach((pick, key) => {
           const player = _.find(this.state.about.elements, {
-            id: pick.element,
+            id: pick.element
           });
           playerPick.picks[key]["player"] = player;
         })
@@ -124,14 +126,14 @@ class League extends Component {
       .forEach((playerPick, playerId) => {
         let totalPoints = 0;
         _.chain(playerPick.picks)
-          .forEach((pick) => {
+          .forEach(pick => {
             if (pick.position <= 11) {
               const temp = this.state;
               const element = _.find(this.state.event.elements, {
-                id: pick.element,
+                id: pick.element
               });
               const fixture = _.find(temp.fixtures, {
-                team_h: pick.player.team,
+                team_h: pick.player.team
               })
                 ? _.find(temp.fixtures, { team_h: pick.player.team })
                 : _.find(temp.fixtures, { team_a: pick.player.team });
@@ -151,7 +153,7 @@ class League extends Component {
                     _.sortBy(_.concat(homeBps, awayBps), "value")
                   );
                   const eventStatus = _.find(temp.eventStatus.status, {
-                    jsDate: fixtureKickOffTime,
+                    jsDate: fixtureKickOffTime
                   });
                   var liveBonus = 0;
                   if (!eventStatus.bonus_added) {
@@ -167,12 +169,12 @@ class League extends Component {
             }
           })
           .value();
-        this.setState((prevState) => ({
+        this.setState(prevState => ({
           league: {
             ...prevState.league,
             standings: {
               ...prevState.league.standings,
-              results: prevState.league.standings.results.map((res) =>
+              results: prevState.league.standings.results.map(res =>
                 res.entry == playerId
                   ? {
                       ...res,
@@ -181,12 +183,12 @@ class League extends Component {
                       live_total:
                         res.total +
                         totalPoints -
-                        playerPick.entry_history.event_transfers_cost,
+                        playerPick.entry_history.event_transfers_cost
                     }
                   : res
-              ),
-            },
-          },
+              )
+            }
+          }
         }));
       })
       .value();
@@ -199,9 +201,9 @@ class League extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
-      body: JSON.stringify(_.map(league.standings.results, "entry")),
+      body: JSON.stringify(_.map(league.standings.results, "entry"))
     };
   }
 
@@ -219,8 +221,7 @@ class League extends Component {
   }
 
   componentDidMount() {
-    
-    this.preload();  
+    this.preload();
   }
 
   randomButton() {
@@ -232,19 +233,19 @@ class League extends Component {
       <SearchBar
         placeholder={this.state.leagueId}
         value={this.state.value}
-        onChange={(query) => {
+        onChange={query => {
           this.setState({ leagueId: query });
         }}
         onRequestSearch={() => this.search()}
         style={{
           margin: "5 5 5 5",
-          width: "50%",
+          width: "50%"
         }}
       />
     );
   }
 
-  onGridReady = (params) => {
+  onGridReady = params => {
     this.gridApi = params.api;
     this.gridColumnApi = params.columnApi;
     this.gridApi.sizeColumnsToFit();
@@ -253,8 +254,8 @@ class League extends Component {
   render() {
     var gridOptions = {
       context: {
-        state: this.state,
-      },
+        state: this.state
+      }
     };
     return (
       <div className="body">
@@ -262,13 +263,13 @@ class League extends Component {
           <SearchBar
             placeholder={this.state.leagueId}
             value={this.state.value}
-            onChange={(query) => {
+            onChange={query => {
               this.setState({ leagueId: query });
             }}
             onRequestSearch={() => this.search()}
             style={{
               margin: "5 5 5 5",
-              width: "100%",
+              width: "100%"
             }}
           />
         </div>
@@ -280,7 +281,7 @@ class League extends Component {
                 <AgGridReact
                   gridOptions={gridOptions}
                   rowData={_.sortBy(this.state.league.standings.results, [
-                    "live_total",
+                    "live_total"
                   ]).reverse()}
                   domLayout={"autoHeight"}
                   onGridReady={this.onGridReady}
@@ -355,7 +356,6 @@ class League extends Component {
   }
 }
 
-
 function flagRenderer(params) {
   const playerId = params.data.entry;
   const country =
@@ -364,7 +364,9 @@ function flagRenderer(params) {
   console.log(params.value + " : " + country);
   const element = document.createElement("span");
   const imageElement = document.createElement("img");
-  imageElement.src = process.env.PUBLIC_URL + country + ".svg";
+  console.log(window.location.origin + "/" + country + ".svg");
+
+  imageElement.src = window.location.origin + "/" + country + ".svg";
   imageElement.width = 24;
   imageElement.height = 24;
   imageElement.style.cssText =
@@ -377,7 +379,7 @@ function flagRenderer(params) {
 
 function getCaptain(params) {
   const captain_id = _.find(params.data.player_pick.picks, {
-    is_captain: true,
+    is_captain: true
   }).element;
   return _.find(params.context.state.about.elements, { id: captain_id })
     .web_name;
@@ -406,11 +408,11 @@ function getChange(params) {
     "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
 
   if (positionChange > 0) {
-    imageElement.src = process.env.PUBLIC_URL + "up-arrow.svg";
+    imageElement.src = window.location.origin + "/" + "up-arrow.svg";
   } else if (positionChange < 0) {
-    imageElement.src = process.env.PUBLIC_URL + "down-arrow.svg";
+    imageElement.src = window.location.origin + "/" + "down-arrow.svg";
   } else {
-    imageElement.src = process.env.PUBLIC_URL + "equals.svg";
+    imageElement.src = window.location.origin + "/" + "equals.svg";
   }
   element.appendChild(imageElement);
 
@@ -423,7 +425,7 @@ function getHits(params) {
 
 function getViceCaptain(params) {
   const captain_id = _.find(params.data.player_pick.picks, {
-    is_vice_captain: true,
+    is_vice_captain: true
   }).element;
   return _.find(params.context.state.about.elements, { id: captain_id })
     .web_name;
@@ -433,7 +435,7 @@ function getTransfersIn(params) {
   return _.chain(params.data.player_pick.transfers)
     .filter({ event: params.context.state.currentGameweek.id })
     .map("element_in")
-    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
+    .map(x => _.find(params.context.state.about.elements, { id: x }).web_name)
     .value()
     .join(", ");
 }
@@ -442,9 +444,9 @@ function getTransfersOut(params) {
   return _.chain(params.data.player_pick.transfers)
     .filter({ event: params.context.state.currentGameweek.id })
     .map("element_out")
-    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
+    .map(x => _.find(params.context.state.about.elements, { id: x }).web_name)
     .value()
     .join(", ");
 }
 
-// export default League;
+export default withRouter(League);

@@ -1,20 +1,25 @@
-import React, { Component } from "react";
-import { BrowserRouter as Router, Route, Link, Switch, withRouter } from "react-router-dom";
-
+import React from "react";
+import { BrowserRouter, Link, Route, Switch } from "react-router-dom";
+import Products from "./Components/Products";
 import League from "./Components/league";
+import "./Components/style.css";
 
-function App() {
+const Home = () => <div></div>;
+
+export default function App() {
   return (
-    <div className="App">
-      <Router>
+    <div>
         <Switch>
-          <Route path="/" element={<h1>Home Page</h1>} />
-          <Route path="league/:leagueId?" element={<League />} />
-          <Route path="league/" element={<League />} />
+          <Route exact path="/">
+            <Home />
+          </Route>
+          <Route path="/products">
+            <Products />
+          </Route>
+          <Route path="/league/:leagueId?">
+            <League />
+          </Route>
         </Switch>
-      </Router>
     </div>
   );
 }
-
-export default App;
