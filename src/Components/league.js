@@ -5,7 +5,6 @@ import { AgGridColumn, AgGridReact } from "ag-grid-react";
 import "./ag-grid.css";
 import "./ag-theme-alpine.css";
 import "./style.css";
-import { useHistory } from "react-router-dom";
 
 import "ag-grid-community/dist/styles/ag-grid.css";
 import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
@@ -224,10 +223,6 @@ class League extends Component {
     this.preload();
   }
 
-  randomButton() {
-    return <Button variant="contained">Default</Button>;
-  }
-
   searchButton() {
     return (
       <SearchBar
@@ -248,6 +243,13 @@ class League extends Component {
   onGridReady = params => {
     this.gridApi = params.api;
     this.gridColumnApi = params.columnApi;
+
+    var resizableColumnIds = params.columnApi
+      .getAllColumns()
+      .map((column) => column.colId)
+      // .filter((column) => column !== "player_name");
+    // params.columnApi.autoSizeColumns(resizableColumnIds);
+
     this.gridApi.sizeColumnsToFit();
   };
 
@@ -257,6 +259,10 @@ class League extends Component {
         state: this.state
       }
     };
+    const defaultColDef = {
+      resizable: true,
+      sortable: true
+  };
     return (
       <div className="body">
         <div className="searchBar">
@@ -276,7 +282,7 @@ class League extends Component {
         <div className="grid">
           {this.state.loaded ? (
             <div>
-              <div className="toolbar"></div>
+              {/* <div className="toolbar"></div> */}
               <div className="ag-theme-alpine-dark">
                 <AgGridReact
                   gridOptions={gridOptions}
@@ -285,6 +291,7 @@ class League extends Component {
                   ]).reverse()}
                   domLayout={"autoHeight"}
                   onGridReady={this.onGridReady}
+                  defaultColDef={defaultColDef}
                 >
                   <AgGridColumn
                     field="rank"
@@ -304,6 +311,7 @@ class League extends Component {
                     cellRenderer={flagRenderer}
                     field="player_name"
                     headerName="Player"
+                    width="200px"
                     filter="agTextColumnFilter"
                   ></AgGridColumn>
                   <AgGridColumn
@@ -314,12 +322,10 @@ class League extends Component {
                   <AgGridColumn
                     field="live_total"
                     headerName="Total Points"
-                    sortable={true}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="current_gameweek_points"
                     headerName="GW Points"
-                    sortable={true}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="captain"
@@ -340,11 +346,13 @@ class League extends Component {
                     field="transfersout"
                     headerName="Transfers Out"
                     valueGetter={getTransfersOut}
+                    maxWidth={150}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="transfersIn"
                     headerName="Transfers In"
                     valueGetter={getTransfersIn}
+                    maxWidth={150}
                   ></AgGridColumn>
                 </AgGridReact>
               </div>
