@@ -7,7 +7,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background-color: #121212;
+  /* background-color: #121212; */
 }
 .searchBar {
   margin: auto;
@@ -17,7 +17,7 @@ body {
 
 .grid {
   margin: auto;
-  width: 95%;
+  width: 77%;
 }
 
 .toolbar {
