@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Link, Route, Switch } from "react-router-dom";
+import { Route, Switch } from "react-router-dom";
 import Products from "./Components/Products";
 import League from "./Components/league";
 import "./Components/style.css";
