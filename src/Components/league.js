@@ -13,7 +13,7 @@ import _ from "lodash";
 import { withRouter } from "react-router";
 import { pickBy, identity } from 'lodash'
 
-const PATH_BASE = "https://fpl-spring-boot.herokuapp.com";
+const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
 const PATH_LEAGUE = "/league/";
 const PATH_ENTRY = "/entry/";
 const CURRENT_GAMEWEEK_EVENT = "/event/";
