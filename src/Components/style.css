@@ -27,3 +27,9 @@ body {
   display:block;
   background-color: #222628;
 }
+
+.loading{
+  display:flex; 
+  justify-content:center;
+  align-items:center;
+  }

@@ -11,7 +11,8 @@ import "ag-grid-community/dist/styles/ag-grid.css";
 import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
 import _ from "lodash";
 import { withRouter } from "react-router";
-import { pickBy, identity } from 'lodash'
+import CircularProgress from "@mui/material/CircularProgress";
+import { pickBy, identity } from "lodash";
 
 const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
 const PATH_LEAGUE = "/league/";
@@ -94,12 +95,15 @@ class League extends Component {
     if (!localStorage.getItem("leagues")) {
       localStorage.setItem("leagues", JSON.stringify({}));
     }
-    if(leagueResponse.ok){
+    if (leagueResponse.ok) {
       const localStorageLeagues = JSON.parse(localStorage.getItem("leagues"));
       localStorageLeagues[leagueId] = league;
-      localStorage.setItem("leagues", JSON.stringify(pickBy(localStorageLeagues, identity)));
+      localStorage.setItem(
+        "leagues",
+        JSON.stringify(pickBy(localStorageLeagues, identity))
+      );
     }
-    
+
     this.setState({ league: league });
 
     const entryMap = {};
@@ -254,7 +258,7 @@ class League extends Component {
       () => {
         // This will output an array of objects
         // given by Autocompelte options property.
-        if(this.state.leagueId){
+        if (this.state.leagueId) {
           this.search();
         }
       }
@@ -378,7 +382,12 @@ class League extends Component {
                 </AgGridReact>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="loading">
+              {" "}
+              <CircularProgress />
+            </div>
+          )}
         </div>
       </div>
     );
