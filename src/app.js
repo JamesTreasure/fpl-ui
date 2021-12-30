@@ -8,7 +8,7 @@ const Home = () => <div></div>;
 
 export default function App() {
   return (
-    <div>
+    // <div>
         <Switch>
           <Route exact path="/">
             <Home />
@@ -20,6 +20,6 @@ export default function App() {
             <League />
           </Route>
         </Switch>
-    </div>
+    // </div>
   );
 }

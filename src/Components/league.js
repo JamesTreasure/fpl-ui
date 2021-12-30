@@ -281,7 +281,7 @@ class League extends Component {
       .value();
 
     return (
-      <div className="body">
+      <div id="main" className="main">
         <div className="searchBar">
           <Stack>
             <Autocomplete
@@ -295,8 +295,8 @@ class League extends Component {
             />
           </Stack>
         </div>
-        <div className="grid">
           {this.state.loaded ? (
+            <div className="grid">
             <div>
               {/* <div className="toolbar"></div> */}
               <div className="ag-theme-alpine-dark">
@@ -382,6 +382,7 @@ class League extends Component {
                 </AgGridReact>
               </div>
             </div>
+            </div>
           ) : (
             <div className="loading">
               {" "}
@@ -389,7 +390,6 @@ class League extends Component {
             </div>
           )}
         </div>
-      </div>
     );
   }
 }

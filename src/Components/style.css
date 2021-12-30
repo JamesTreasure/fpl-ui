@@ -1,7 +1,11 @@
-/* .body {
-  width: 100%;
-  background-color: #121212;
-} */
+#root {
+  height: 100%;
+}
+
+.main {
+  height: 100%;
+}
+
 
 html,
 body {
@@ -17,6 +21,7 @@ body {
 
 .grid {
   margin: auto;
+  min-height: 35%;
   width: 77%;
 }
 
@@ -32,4 +37,5 @@ body {
   display:flex; 
   justify-content:center;
   align-items:center;
+  height: 15%;
   }
