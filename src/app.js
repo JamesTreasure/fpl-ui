@@ -1,6 +1,5 @@
 import React from "react";
 import { Route, Switch } from "react-router-dom";
-import Products from "./Components/Products";
 import League from "./Components/league";
 import "./Components/style.css";
 
@@ -12,9 +11,6 @@ export default function App() {
         <Switch>
           <Route exact path="/">
             <Home />
-          </Route>
-          <Route path="/products">
-            <Products />
           </Route>
           <Route path="/league/:leagueId?">
             <League />

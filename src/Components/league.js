@@ -280,6 +280,8 @@ class League extends Component {
       .map("name")
       .value();
 
+    const name = "hello";
+
     return (
       <div id="main" className="main">
         <div className="searchBar">
@@ -295,8 +297,8 @@ class League extends Component {
             />
           </Stack>
         </div>
-          {this.state.loaded ? (
-            <div className="grid">
+        {this.state.loaded ? (
+          <div className="grid">
             <div>
               {/* <div className="toolbar"></div> */}
               <div className="ag-theme-alpine-dark">
@@ -313,83 +315,83 @@ class League extends Component {
                     field="rank"
                     headerName="Rank"
                     cellRenderer={getRowIndex}
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="last_rank"
                     headerName="Old Rank"
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="change"
                     headerName="Change"
                     cellRenderer={getChange}
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="entry_name"
                     headerName="Team Name"
                     filter="agTextColumnFilter"
-                    flex={2}
+                    flex={4}
                   ></AgGridColumn>
                   <AgGridColumn
                     cellRenderer={flagRenderer}
                     field="player_name"
                     headerName="Player"
                     filter="agTextColumnFilter"
-                    flex={3}
+                    flex={5}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="live_total"
                     headerName="Total Points"
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="current_gameweek_points"
                     headerName="GW Points"
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="captain"
                     headerName="Captain"
                     valueGetter={getCaptain}
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="vice_captain"
                     headerName="Vice"
                     valueGetter={getViceCaptain}
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="hits"
                     headerName="Hits"
                     valueGetter={getHits}
-                    flex={1}
+                    flex={2}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="transfersout"
                     headerName="Transfers Out"
                     valueGetter={getTransfersOut}
-                    flex={3}
+                    flex={5}
                   ></AgGridColumn>
                   <AgGridColumn
                     field="transfersIn"
                     headerName="Transfers In"
                     valueGetter={getTransfersIn}
-                    flex={3}
+                    flex={5}
                   ></AgGridColumn>
                 </AgGridReact>
               </div>
             </div>
-            </div>
-          ) : (
-            <div className="loading">
-              {" "}
-              <CircularProgress />
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="loading">
+            {" "}
+            <CircularProgress />
+          </div>
+        )}
+      </div>
     );
   }
 }
