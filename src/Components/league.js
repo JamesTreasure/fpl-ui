@@ -148,39 +148,43 @@ class League extends Component {
               const element = _.find(this.state.event.elements, {
                 id: pick.element,
               });
-              const fixture = _.find(temp.fixtures, {
-                team_h: pick.player.team,
-              })
-                ? _.find(temp.fixtures, { team_h: pick.player.team })
-                : _.find(temp.fixtures, { team_a: pick.player.team });
 
-              if (fixture) {
-                const fixtureKickOffTime = new Date(fixture.kickoff_time);
-                fixtureKickOffTime.setHours(0, 0, 0, 0);
+              const fixtures = _.filter(temp.fixtures, function (fx) {
+                return (
+                  fx.team_h === pick.player.team ||
+                  fx.team_a === pick.player.team
+                );
+              });
 
-                if (fixture.started) {
-                  const homeBps = _.chain(fixture.stats)
-                    .find({ identifier: "bps" })
-                    .value()["h"];
-                  const awayBps = _.chain(fixture.stats)
-                    .find({ identifier: "bps" })
-                    .value()["a"];
-                  const allBps = _.reverse(
-                    _.sortBy(_.concat(homeBps, awayBps), "value")
-                  );
-                  const eventStatus = _.find(temp.eventStatus.status, {
-                    jsDate: fixtureKickOffTime,
-                  });
-                  var liveBonus = 0;
-                  if (!eventStatus.bonus_added) {
-                    liveBonus = this.calculateLiveBonus(allBps, pick);
+              if (!_.isEmpty(fixtures)) {
+                _.forEach(fixtures, function (fixture) {
+                  const fixtureKickOffTime = new Date(fixture.kickoff_time);
+                  fixtureKickOffTime.setHours(0, 0, 0, 0);
+
+                  if (fixture.started) {
+                    const homeBps = _.chain(fixture.stats)
+                      .find({ identifier: "bps" })
+                      .value()["h"];
+                    const awayBps = _.chain(fixture.stats)
+                      .find({ identifier: "bps" })
+                      .value()["a"];
+                    const allBps = _.reverse(
+                      _.sortBy(_.concat(homeBps, awayBps), "value")
+                    );
+                    const eventStatus = _.find(temp.eventStatus.status, {
+                      jsDate: fixtureKickOffTime,
+                    });
+                    var liveBonus = 0;
+                    if (!eventStatus.bonus_added) {
+                      liveBonus = this.calculateLiveBonus(allBps, pick);
+                    }
+
+                    totalPoints =
+                      totalPoints +
+                      liveBonus +
+                      element.stats.total_points * pick.multiplier;
                   }
-
-                  totalPoints =
-                    totalPoints +
-                    liveBonus +
-                    element.stats.total_points * pick.multiplier;
-                }
+                });
               }
             }
           })
