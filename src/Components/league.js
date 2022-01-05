@@ -14,6 +14,7 @@ import { withRouter } from "react-router";
 import CircularProgress from "@mui/material/CircularProgress";
 import { pickBy, identity } from "lodash";
 
+import CreatableSelect from "react-select/creatable";
 const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
 const PATH_LEAGUE = "/league/";
 const PATH_ENTRY = "/entry/";
@@ -249,14 +250,21 @@ class League extends Component {
     this.gridColumnApi = params.columnApi;
   };
 
-  onTagsChange = (event, values) => {
+  onTagsChange = (event) => {
+    const leagueId = !isNaN(event.label)
+      ? event.label
+      : _.chain(JSON.parse(localStorage.getItem("leagues")))
+          .map("league")
+          .find({ name: event.label })
+          .value()["id"];
+    this.props.history.push("/league/" + leagueId);
     this.setState(
       {
-        leagueId: !isNaN(values)
-          ? values
+        leagueId: !isNaN(event.label)
+          ? event.label
           : _.chain(JSON.parse(localStorage.getItem("leagues")))
               .map("league")
-              .find({ name: values })
+              .find({ name: event.label })
               .value()["id"],
       },
       () => {
@@ -269,6 +277,27 @@ class League extends Component {
     );
   };
 
+  handleCreate = (leagueId) => {
+    this.props.history.push("/league/" + leagueId);
+    this.setState(
+      {
+        leagueId: leagueId,
+      },
+      () => {
+        // This will output an array of objects
+        // given by Autocompelte options property.
+        if (this.state.leagueId) {
+          this.search();
+        }
+      }
+    );
+  };
+
+  createOption = (label) => ({
+    label,
+    value: label.toLowerCase().replace(/\W/g, ""),
+  });
+
   render() {
     var gridOptions = {
       context: {
@@ -279,17 +308,48 @@ class League extends Component {
       resizable: true,
       sortable: true,
     };
+
+    const createOption = (label) => ({
+      label,
+      value: label.toLowerCase().replace(/\W/g, ""),
+    });
+
     const leagueNames = _.chain(JSON.parse(localStorage.getItem("leagues")))
       .map("league")
       .map("name")
+      .map(createOption)
       .value();
 
-    const name = "hello";
+    const chosenLeagueName = this.state.loaded
+      ? createOption(this.state.league.league.name)
+      : "";
+
+      const styles = {
+        control: base => ({
+          ...base,
+          fontFamily: "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;"
+        }),
+        menu: base => ({
+          ...base,
+          fontFamily: "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;"
+        })
+      };
 
     return (
       <div id="main" className="main">
         <div className="searchBar">
-          <Stack>
+          <CreatableSelect
+            // isClearable
+            // isDisabled={isLoading}
+            // isLoading={isLoading}
+            styles={styles}
+            onChange={this.onTagsChange}
+            onCreateOption={this.handleCreate}
+            options={leagueNames}
+            value={chosenLeagueName}
+            formatCreateLabel={(userInput) => `Search for ${userInput}`}
+          />
+          {/* <Stack>
             <Autocomplete
               id="free-solo-demo"
               freeSolo
@@ -299,7 +359,7 @@ class League extends Component {
                 <TextField {...params} label="League ID" />
               )}
             />
-          </Stack>
+          </Stack> */}
         </div>
         {this.state.loaded ? (
           <div className="grid">
