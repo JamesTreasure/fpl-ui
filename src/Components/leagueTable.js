@@ -105,6 +105,12 @@ export class LeagueTable extends React.Component {
                 flex={2}
               ></AgGridColumn>
               <AgGridColumn
+                field="chips"
+                headerName="Chip"
+                valueGetter={getChips}
+                flex={2}
+              ></AgGridColumn>
+              <AgGridColumn
                 field="transfersout"
                 headerName="Transfers Out"
                 valueGetter={getTransfersOut}
@@ -187,6 +193,26 @@ function getChange(params) {
 
 function getHits(params) {
   return params.data.player_pick.entry_history.event_transfers_cost;
+}
+
+function getChips(params) {
+  if(!params.data.player_pick.active_chip) return '';
+  return _.reduce(
+    params.data.player_pick.active_chip.split(","),
+    function (arr, chip) {
+      if (chip === "freehit") {
+        arr.push("FH");
+      }
+      if (chip === "wildcard") {
+        arr.push("WC");
+      }
+      if (chip === "benchboost") {
+        arr.push("BB");
+      }
+      return arr;
+    },
+    []
+  );
 }
 
 function getViceCaptain(params) {
