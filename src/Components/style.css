@@ -10,7 +10,7 @@ html,
 body {
   margin: 0;
   height: 100%;
-  /* background-color: #121212; */
+  background-color: #222628;
 }
 .searchBar {
   margin: auto;
@@ -21,20 +21,28 @@ body {
 .grid {
   margin: auto;
   min-height: 35%;
-  width: 85%;
+  width: 75%;
 }
 
 .toolbar {
   margin: auto;
   width: 100%;
   height: 25px;
-  display:block;
+  display: block;
   background-color: #222628;
 }
 
-.loading{
-  display:flex; 
-  justify-content:center;
-  align-items:center;
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   height: 15%;
-  }
+}
+
+.counter {
+  color: white;
+  display: flex;
+  justify-content: right;
+  padding-right: 1%;
+  font-family: apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;
+}

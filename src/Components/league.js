@@ -1,9 +1,6 @@
 import React, { Component } from "react";
 import { AgGridColumn, AgGridReact } from "ag-grid-react";
 import "./ag-grid.css";
-import TextField from "@mui/material/TextField";
-import Stack from "@mui/material/Stack";
-import Autocomplete from "@mui/material/Autocomplete";
 import "./ag-theme-alpine.css";
 import "./style.css";
 
@@ -13,6 +10,9 @@ import _ from "lodash";
 import { withRouter } from "react-router";
 import CircularProgress from "@mui/material/CircularProgress";
 import { pickBy, identity } from "lodash";
+import SockJS from "sockjs-client";
+import webstomp from "webstomp-client";
+import { LeagueTable } from "./leagueTable";
 
 import CreatableSelect from "react-select/creatable";
 const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
@@ -37,6 +37,7 @@ class League extends Component {
       playerPicks: {},
       loaded: false,
       eventStatus: {},
+      currentCount: 0,
     };
   }
 
@@ -86,106 +87,62 @@ class League extends Component {
     return currentGameweek;
   }
 
-  async search(event) {
-    this.setState({ loaded: false });
-    let leagueId = this.state.leagueId;
-    const leagueResponse = await fetch(
-      `${PATH_BASE}${PATH_LEAGUE}` + leagueId + "/" + 1
-    );
-    const league = await leagueResponse.json();
-    if (!localStorage.getItem("leagues")) {
-      localStorage.setItem("leagues", JSON.stringify({}));
-    }
-    if (leagueResponse.ok) {
-      const localStorageLeagues = JSON.parse(localStorage.getItem("leagues"));
-      localStorageLeagues[leagueId] = league;
-      localStorage.setItem(
-        "leagues",
-        JSON.stringify(pickBy(localStorageLeagues, identity))
-      );
-    }
+  async search() {
+    const league = await this.getLeague();
 
-    this.setState({ league: league });
+    const postRequestSettings = this.getPostSettings(league);
+    const playerPicks = await this.getPlayerPicks(postRequestSettings);
+    const transfers = await this.getTransfers(postRequestSettings);
+    const entries = await this.getEntries(postRequestSettings);
 
-    const entryMap = {};
+    this.enrichAndSetPlayerPicks(playerPicks, transfers, entries);
 
-    const settings = this.getPostSettings(league);
+    this.calculatePoints();
 
-    const playerPicksResponse = await fetch(
-      `${PATH_BASE}${PATH_ENTRY}` + this.state.currentGameweek.id,
-      settings
-    );
-    const playerPicks = await playerPicksResponse.json();
+    this.setState({ loaded: true });
+  }
 
-    const transfersResponse = await fetch(`${PATH_BASE}${TRANSFERS}`, settings);
-    const transfers = await transfersResponse.json();
-
-    const entryResponse = await fetch(`${PATH_BASE}${PATH_ENTRY}`, settings);
-    const entry = await entryResponse.json();
-
-    _.forEach(playerPicks, (playerPick) => {
-      _.chain(playerPick.picks)
-        .forEach((pick, key) => {
-          const player = _.find(this.state.about.elements, {
-            id: pick.element,
-          });
-          playerPick.picks[key]["player"] = player;
-        })
-        .value();
-      entryMap[playerPick.user_id] = playerPick;
-      entryMap[playerPick.user_id]["transfers"] = transfers[playerPick.user_id];
-      entryMap[playerPick.user_id]["metadata"] = entry[playerPick.user_id];
-    });
-
-    this.setState({ playerPicks: entryMap });
-
+  calculatePoints() {
     _.chain(this.state.playerPicks)
       .forEach((playerPick, playerId) => {
         let totalPoints = 0;
         _.chain(playerPick.picks)
           .forEach((pick) => {
             if (pick.position <= 11) {
-              const temp = this.state;
               const element = _.find(this.state.event.elements, {
                 id: pick.element,
               });
 
-              const fixtures = _.filter(temp.fixtures, function (fx) {
-                return (
-                  fx.team_h === pick.player.team ||
-                  fx.team_a === pick.player.team
-                );
-              });
+              const fixtures = this.getFixturesForPlayer(pick);
 
               if (!_.isEmpty(fixtures)) {
-                _.forEach(fixtures, function (fixture) {
+                var bonus = 0;
+                _.forEach(fixtures, (fixture) => {
                   const fixtureKickOffTime = new Date(fixture.kickoff_time);
                   fixtureKickOffTime.setHours(0, 0, 0, 0);
-
                   if (fixture.started) {
-                    const homeBps = _.chain(fixture.stats)
-                      .find({ identifier: "bps" })
-                      .value()["h"];
-                    const awayBps = _.chain(fixture.stats)
-                      .find({ identifier: "bps" })
-                      .value()["a"];
-                    const allBps = _.reverse(
-                      _.sortBy(_.concat(homeBps, awayBps), "value")
-                    );
-                    const eventStatus = _.find(temp.eventStatus.status, {
+                    const eventStatus = _.find(this.state.eventStatus.status, {
                       jsDate: fixtureKickOffTime,
                     });
-                    var liveBonus = 0;
                     if (!eventStatus.bonus_added) {
-                      liveBonus = this.calculateLiveBonus(allBps, pick);
+                      bonus = bonus + this.calculateLiveBonus(fixture, pick);
                     }
-
-                    totalPoints =
-                      totalPoints +
-                      liveBonus +
-                      element.stats.total_points * pick.multiplier;
+                  }
+                  if (playerPick.user_id == 41409) {
+                    console.log(
+                      _.find(this.state.about.elements, { id: pick.element })
+                        .web_name +
+                        " " +
+                        pick.element +
+                        " " +
+                        element.stats.total_points
+                    );
                   }
                 });
+                totalPoints =
+                  totalPoints +
+                  bonus +
+                  element.stats.total_points * pick.multiplier;
               }
             }
           })
@@ -213,8 +170,78 @@ class League extends Component {
         }));
       })
       .value();
+  }
 
-    this.setState({ loaded: true });
+  getFixturesForPlayer(pick) {
+    return _.filter(
+      this.state.fixtures,
+      (fixture) =>
+        fixture.team_h === pick.player.team ||
+        fixture.team_a === pick.player.team
+    );
+  }
+
+  enrichAndSetPlayerPicks(playerPicks, transfers, entries) {
+    const entryMap = {};
+    _.forEach(playerPicks, (playerPick) => {
+      _.chain(playerPick.picks)
+        .forEach((pick, key) => {
+          const player = _.find(this.state.about.elements, {
+            id: pick.element,
+          });
+          playerPick.picks[key]["player"] = player;
+        })
+        .value();
+      entryMap[playerPick.user_id] = playerPick;
+      entryMap[playerPick.user_id]["transfers"] = transfers[playerPick.user_id];
+      entryMap[playerPick.user_id]["metadata"] = entries[playerPick.user_id];
+    });
+
+    this.setState({ playerPicks: entryMap });
+  }
+
+  async getEntries(settings) {
+    const entryResponse = await fetch(`${PATH_BASE}${PATH_ENTRY}`, settings);
+    const entry = await entryResponse.json();
+    return entry;
+  }
+
+  async getTransfers(settings) {
+    const transfersResponse = await fetch(`${PATH_BASE}${TRANSFERS}`, settings);
+    const transfers = await transfersResponse.json();
+    return transfers;
+  }
+
+  async getPlayerPicks(settings) {
+    const playerPicksResponse = await fetch(
+      `${PATH_BASE}${PATH_ENTRY}` + this.state.currentGameweek.id,
+      settings
+    );
+    const playerPicks = await playerPicksResponse.json();
+    return playerPicks;
+  }
+
+  async getLeague() {
+    this.setState({ loaded: false });
+    let leagueId = this.state.leagueId;
+    const leagueResponse = await fetch(
+      `${PATH_BASE}${PATH_LEAGUE}` + leagueId + "/" + 1
+    );
+    const league = await leagueResponse.json();
+    if (!localStorage.getItem("leagues")) {
+      localStorage.setItem("leagues", JSON.stringify({}));
+    }
+    if (leagueResponse.ok) {
+      const localStorageLeagues = JSON.parse(localStorage.getItem("leagues"));
+      localStorageLeagues[leagueId] = league;
+      localStorage.setItem(
+        "leagues",
+        JSON.stringify(pickBy(localStorageLeagues, identity))
+      );
+    }
+
+    this.setState({ league: league });
+    return league;
   }
 
   getPostSettings(league) {
@@ -228,7 +255,14 @@ class League extends Component {
     };
   }
 
-  calculateLiveBonus(allBps, pick) {
+  calculateLiveBonus(fixture, pick) {
+    const homeBps = _.chain(fixture.stats).find({ identifier: "bps" }).value()[
+      "h"
+    ];
+    const awayBps = _.chain(fixture.stats).find({ identifier: "bps" }).value()[
+      "a"
+    ];
+    const allBps = _.reverse(_.sortBy(_.concat(homeBps, awayBps), "value"));
     const arrayIndex = _.findIndex(allBps, { element: pick.element });
     if (arrayIndex === 0) return 3;
     if (arrayIndex === 1) {
@@ -241,14 +275,39 @@ class League extends Component {
     return 0;
   }
 
-  componentDidMount() {
-    this.preload();
+  timer() {
+    this.setState({
+      currentCount: this.state.currentCount + 1,
+    });
   }
 
-  onGridReady = (params) => {
-    this.gridApi = params.api;
-    this.gridColumnApi = params.columnApi;
-  };
+  componentDidMount() {
+    const connection = new SockJS("http://localhost:8080/websocket");
+    const stompClient = webstomp.over(connection);
+    stompClient.debug = () => {};
+    stompClient.connect("", "", (frame) => {
+      stompClient.subscribe("/notification/message", (greeting) => {
+        var start = new Date().getTime();
+        const eventData = JSON.parse(greeting.body);
+        if (eventData && this.state.loaded) {
+          this.setState({ event: eventData });
+          this.setState({
+            currentCount: 0,
+          });
+          this.calculatePoints();
+          var end = new Date().getTime();
+          var time = end - start;
+          console.log("Execution time: " + time);
+        }
+      });
+    });
+    this.preload();
+    this.intervalId = setInterval(this.timer.bind(this), 1000);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.intervalId);
+  }
 
   onTagsChange = (event) => {
     const leagueId = !isNaN(event.label)
@@ -268,8 +327,6 @@ class League extends Component {
               .value()["id"],
       },
       () => {
-        // This will output an array of objects
-        // given by Autocompelte options property.
         if (this.state.leagueId) {
           this.search();
         }
@@ -284,8 +341,6 @@ class League extends Component {
         leagueId: leagueId,
       },
       () => {
-        // This will output an array of objects
-        // given by Autocompelte options property.
         if (this.state.leagueId) {
           this.search();
         }
@@ -299,16 +354,6 @@ class League extends Component {
   });
 
   render() {
-    var gridOptions = {
-      context: {
-        state: this.state,
-      },
-    };
-    const defaultColDef = {
-      resizable: true,
-      sortable: true,
-    };
-
     const createOption = (label) => ({
       label,
       value: label.toLowerCase().replace(/\W/g, ""),
@@ -324,24 +369,23 @@ class League extends Component {
       ? createOption(this.state.league.league.name)
       : "";
 
-      const styles = {
-        control: base => ({
-          ...base,
-          fontFamily: "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;"
-        }),
-        menu: base => ({
-          ...base,
-          fontFamily: "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;"
-        })
-      };
+    const styles = {
+      control: (base) => ({
+        ...base,
+        fontFamily:
+          "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;",
+      }),
+      menu: (base) => ({
+        ...base,
+        fontFamily:
+          "apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen-Sans, Ubuntu, Cantarell, Helvetica Neue, sans-serif;",
+      }),
+    };
 
     return (
       <div id="main" className="main">
         <div className="searchBar">
           <CreatableSelect
-            // isClearable
-            // isDisabled={isLoading}
-            // isLoading={isLoading}
             styles={styles}
             onChange={this.onTagsChange}
             onCreateOption={this.handleCreate}
@@ -349,106 +393,9 @@ class League extends Component {
             value={chosenLeagueName}
             formatCreateLabel={(userInput) => `Search for ${userInput}`}
           />
-          {/* <Stack>
-            <Autocomplete
-              id="free-solo-demo"
-              freeSolo
-              onChange={this.onTagsChange}
-              options={leagueNames}
-              renderInput={(params) => (
-                <TextField {...params} label="League ID" />
-              )}
-            />
-          </Stack> */}
         </div>
         {this.state.loaded ? (
-          <div className="grid">
-            <div>
-              {/* <div className="toolbar"></div> */}
-              <div className="ag-theme-alpine-dark">
-                <AgGridReact
-                  gridOptions={gridOptions}
-                  rowData={_.sortBy(this.state.league.standings.results, [
-                    "live_total",
-                  ]).reverse()}
-                  domLayout={"autoHeight"}
-                  onGridReady={this.onGridReady}
-                  defaultColDef={defaultColDef}
-                >
-                  <AgGridColumn
-                    field="rank"
-                    headerName="Rank"
-                    cellRenderer={getRowIndex}
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="last_rank"
-                    headerName="Old Rank"
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="change"
-                    headerName="Change"
-                    cellRenderer={getChange}
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="entry_name"
-                    headerName="Team Name"
-                    filter="agTextColumnFilter"
-                    flex={4}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    cellRenderer={flagRenderer}
-                    field="player_name"
-                    headerName="Player"
-                    filter="agTextColumnFilter"
-                    flex={5}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="live_total"
-                    headerName="Total Points"
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="current_gameweek_points"
-                    headerName="GW Points"
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="captain"
-                    headerName="Captain"
-                    valueGetter={getCaptain}
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="vice_captain"
-                    headerName="Vice"
-                    valueGetter={getViceCaptain}
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="hits"
-                    headerName="Hits"
-                    valueGetter={getHits}
-                    flex={2}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="transfersout"
-                    headerName="Transfers Out"
-                    valueGetter={getTransfersOut}
-                    flex={5}
-                  ></AgGridColumn>
-                  <AgGridColumn
-                    field="transfersIn"
-                    headerName="Transfers In"
-                    valueGetter={getTransfersIn}
-                    flex={5}
-                  ></AgGridColumn>
-                </AgGridReact>
-              </div>
-            </div>
-          </div>
+          <LeagueTable fpldata={this.state} />
         ) : (
           <div className="loading">
             {" "}
@@ -458,97 +405,6 @@ class League extends Component {
       </div>
     );
   }
-}
-
-function flagRenderer(params) {
-  const playerId = params.data.entry;
-  const country =
-    params.context.state.playerPicks[playerId].metadata
-      .player_region_iso_code_short;
-  const element = document.createElement("span");
-  const imageElement = document.createElement("img");
-
-  imageElement.src = window.location.origin + "/" + country + ".svg";
-  imageElement.width = 24;
-  imageElement.height = 24;
-  imageElement.style.cssText =
-    "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
-
-  element.appendChild(document.createTextNode(params.value));
-  element.appendChild(imageElement);
-  return element;
-}
-
-function getCaptain(params) {
-  const captain_id = _.find(params.data.player_pick.picks, {
-    is_captain: true,
-  }).element;
-  return _.find(params.context.state.about.elements, { id: captain_id })
-    .web_name;
-}
-
-function getRowIndex(params) {
-  return params.node.rowIndex + 1;
-}
-
-function getChange(params) {
-  const element = document.createElement("span");
-  const imageElement = document.createElement("img");
-
-  const positionChange = params.data.last_rank - (params.node.rowIndex + 1);
-  if (positionChange !== 0) {
-    var div = document.createElement("div");
-    div.innerText = Math.abs(positionChange);
-    div.style.cssText =
-      "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:40px";
-    element.appendChild(div);
-  }
-
-  imageElement.width = 24;
-  imageElement.height = 24;
-  imageElement.style.cssText =
-    "margin: 0; position: absolute; top: 50%; -ms-transform: translateY(-50%); transform: translateY(-50%);padding-left:10px";
-
-  if (positionChange > 0) {
-    imageElement.src = window.location.origin + "/up-arrow.svg";
-  } else if (positionChange < 0) {
-    imageElement.src = window.location.origin + "/down-arrow.svg";
-  } else {
-    imageElement.src = window.location.origin + "/equals.svg";
-  }
-  element.appendChild(imageElement);
-
-  return element;
-}
-
-function getHits(params) {
-  return params.data.player_pick.entry_history.event_transfers_cost;
-}
-
-function getViceCaptain(params) {
-  const captain_id = _.find(params.data.player_pick.picks, {
-    is_vice_captain: true,
-  }).element;
-  return _.find(params.context.state.about.elements, { id: captain_id })
-    .web_name;
-}
-
-function getTransfersIn(params) {
-  return _.chain(params.data.player_pick.transfers)
-    .filter({ event: params.context.state.currentGameweek.id })
-    .map("element_in")
-    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
-    .value()
-    .join(", ");
-}
-
-function getTransfersOut(params) {
-  return _.chain(params.data.player_pick.transfers)
-    .filter({ event: params.context.state.currentGameweek.id })
-    .map("element_out")
-    .map((x) => _.find(params.context.state.about.elements, { id: x }).web_name)
-    .value()
-    .join(", ");
 }
 
 export default withRouter(League);
