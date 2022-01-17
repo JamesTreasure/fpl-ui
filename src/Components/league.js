@@ -13,6 +13,7 @@ import { pickBy, identity } from "lodash";
 import SockJS from "sockjs-client";
 import webstomp from "webstomp-client";
 import { LeagueTable } from "./leagueTable";
+import hash from "object-hash";
 
 import CreatableSelect from "react-select/creatable";
 const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
@@ -63,9 +64,16 @@ class League extends Component {
     const eventStatusResponse = await fetch(`${PATH_BASE}${EVENT_STATUS}`);
     const eventStatus = await eventStatusResponse.json();
     _.forEach(eventStatus.status, (value) => {
-      value["jsDate"] = new Date(value.date);
+      const date = new Date(value.date);
+      value["year"] = date.getUTCFullYear();
+      value["month"] = date.getUTCMonth();
+      value["day"] = date.getUTCDate();
     });
     this.setState({ eventStatus: eventStatus });
+    this.setState({
+      hasTransferPriceBeenPaid:
+        _.find(eventStatus.status, { points: "r" }) !== undefined,
+    });
   }
 
   async getEvent() {
@@ -73,7 +81,7 @@ class League extends Component {
       `${PATH_BASE}${CURRENT_GAMEWEEK_EVENT}` + this.state.currentGameweek.id
     );
     const event = await eventResponse.json();
-    this.setState({ event: event });
+    this.setState({ event: event, eventHash: hash(event) });
   }
 
   async getCurrentGameweek() {
@@ -117,32 +125,26 @@ class League extends Component {
 
               if (!_.isEmpty(fixtures)) {
                 var bonus = 0;
+                var livePlayerPoints = 0;
                 _.forEach(fixtures, (fixture) => {
-                  const fixtureKickOffTime = new Date(fixture.kickoff_time);
-                  fixtureKickOffTime.setHours(0, 0, 0, 0);
+                  const date = new Date(fixture.kickoff_time);
+                  const year = date.getUTCFullYear();
+                  const month = date.getUTCMonth();
+                  const day = date.getUTCDate();
                   if (fixture.started) {
                     const eventStatus = _.find(this.state.eventStatus.status, {
-                      jsDate: fixtureKickOffTime,
+                      day: day,
                     });
+                    if (eventStatus.points !== "r") {
+                      livePlayerPoints =
+                        element.stats.total_points * pick.multiplier;
+                    }
                     if (!eventStatus.bonus_added) {
                       bonus = bonus + this.calculateLiveBonus(fixture, pick);
                     }
                   }
-                  if (playerPick.user_id == 41409) {
-                    console.log(
-                      _.find(this.state.about.elements, { id: pick.element })
-                        .web_name +
-                        " " +
-                        pick.element +
-                        " " +
-                        element.stats.total_points
-                    );
-                  }
                 });
-                totalPoints =
-                  totalPoints +
-                  bonus +
-                  element.stats.total_points * pick.multiplier;
+                totalPoints = totalPoints + bonus + livePlayerPoints;
               }
             }
           })
@@ -156,12 +158,14 @@ class League extends Component {
                 res.entry == playerId
                   ? {
                       ...res,
-                      current_gameweek_points: totalPoints,
+                      current_gameweek_points: totalPoints + res.event_total,
                       player_pick: playerPick,
                       live_total:
                         res.total +
                         totalPoints -
-                        playerPick.entry_history.event_transfers_cost,
+                        (prevState.hasTransferPriceBeenPaid
+                          ? 0
+                          : playerPick.entry_history.event_transfers_cost),
                     }
                   : res
               ),
@@ -282,22 +286,31 @@ class League extends Component {
   }
 
   componentDidMount() {
-    const connection = new SockJS("https://fpl-spring-boot.herokuapp.com/websocket");
+    const connection = new SockJS(
+      "https://fpl-spring-boot.herokuapp.com/websocket"
+    );
     const stompClient = webstomp.over(connection);
     stompClient.debug = () => {};
     stompClient.connect("", "", (frame) => {
       stompClient.subscribe("/notification/message", (greeting) => {
-        var start = new Date().getTime();
+        
         const eventData = JSON.parse(greeting.body);
+        var start = new Date().getTime();
+        const newHash = hash(eventData);
+        var end = new Date().getTime();
+          var time = end - start;
+          console.log("Execution time: " + time);
         if (eventData && this.state.loaded) {
-          this.setState({ event: eventData });
           this.setState({
             currentCount: 0,
           });
-          this.calculatePoints();
-          var end = new Date().getTime();
-          var time = end - start;
-          console.log("Execution time: " + time);
+          if(newHash !== this.state.eventHash){
+            this.calculatePoints();
+            this.setState({ event: eventData });
+          }
+                
+          
+          
         }
       });
     });
