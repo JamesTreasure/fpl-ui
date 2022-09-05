@@ -16,7 +16,7 @@ import { LeagueTable } from "./leagueTable";
 import hash from "object-hash";
 
 import CreatableSelect from "react-select/creatable";
-const PATH_BASE = "https://fpl-service.fly.dev/";
+const PATH_BASE = "https://fpl-service-docker.onrender.com/";
 // const PATH_BASE = "http://localhost:8080/";
 const PATH_LEAGUE = "league/";
 const PATH_ENTRY = "entry/";
@@ -300,7 +300,7 @@ class League extends Component {
 
   componentDidMount() {
     const connection = new SockJS(
-      "https://fpl-service.fly.dev/websocket"
+      "https://fpl-service-docker.onrender.com/websocket"
     );
     // const connection = new SockJS(
     //   "http://localhost:8080/websocket"
