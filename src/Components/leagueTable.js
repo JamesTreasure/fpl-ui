@@ -8,6 +8,9 @@ import "ag-grid-community/dist/styles/ag-grid.css";
 import "ag-grid-community/dist/styles/ag-theme-alpine-dark.css";
 import _ from "lodash";
 
+const onCellClicked = () => console.log('Cell was clicked');
+
+
 export class LeagueTable extends React.Component {
   getHits(params) {
     return params.data.player_pick.entry_history.event_transfers_cost;
@@ -16,8 +19,10 @@ export class LeagueTable extends React.Component {
     this.gridApi = params.api;
     this.gridColumnApi = params.columnApi;
   };
+
   render() {
-    var gridOptions = {
+    const gridOptions = {
+      onCellClicked: () => console.log('Cell was clicked'),
       context: {
         state: this.props.fpldata,
       },
