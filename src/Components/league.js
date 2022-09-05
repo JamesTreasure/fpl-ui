@@ -18,13 +18,13 @@ import hash from "object-hash";
 import CreatableSelect from "react-select/creatable";
 const PATH_BASE = "https://fpl-service.fly.dev/";
 // const PATH_BASE = "http://localhost:8080/";
-const PATH_LEAGUE = "/league/";
-const PATH_ENTRY = "/entry/";
-const CURRENT_GAMEWEEK_EVENT = "/event/";
-const FIXTURES = "/fixtures/";
-const EVENT_STATUS = "/event-status/";
+const PATH_LEAGUE = "league/";
+const PATH_ENTRY = "entry/";
+const CURRENT_GAMEWEEK_EVENT = "event/";
+const FIXTURES = "fixtures/";
+const EVENT_STATUS = "event-status/";
 const ABOUT = "about";
-const TRANSFERS = "/transfers/";
+const TRANSFERS = "transfers/";
 
 class League extends Component {
   constructor(props) {
