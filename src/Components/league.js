@@ -16,7 +16,8 @@ import { LeagueTable } from "./leagueTable";
 import hash from "object-hash";
 
 import CreatableSelect from "react-select/creatable";
-const PATH_BASE = "https://fpl-spring-boot.herokuapp.com/";
+const PATH_BASE = "https://fpl-service.fly.dev/";
+// const PATH_BASE = "http://localhost:8080/";
 const PATH_LEAGUE = "/league/";
 const PATH_ENTRY = "/entry/";
 const CURRENT_GAMEWEEK_EVENT = "/event/";
@@ -140,10 +141,15 @@ class League extends Component {
                         element.stats.total_points * pick.multiplier;
                     }
                     if (!eventStatus.bonus_added) {
-                      bonus = bonus + this.calculateLiveBonus(fixture, pick);
+                      bonus = bonus + (this.calculateLiveBonus(fixture, pick) * pick.multiplier);
                     }
                   }
                 });
+                if(livePlayerPoints !== 0){
+                  console.log(playerId + ' ' + _.find(this.state.about.elements, { id: pick.element })
+                .web_name + ': '+ livePlayerPoints + ' bonus: ' + bonus)
+                }
+                
                 totalPoints = totalPoints + bonus + livePlayerPoints;
               }
             }
@@ -155,19 +161,26 @@ class League extends Component {
             standings: {
               ...prevState.league.standings,
               results: prevState.league.standings.results.map((res) =>
-                res.entry == playerId
-                  ? {
-                      ...res,
-                      current_gameweek_points: totalPoints + res.event_total,
-                      player_pick: playerPick,
-                      live_total:
-                        res.total +
-                        totalPoints -
-                        (prevState.hasTransferPriceBeenPaid
-                          ? 0
-                          : playerPick.entry_history.event_transfers_cost),
-                    }
-                  : res
+                {
+                  
+
+                  if (res.entry == playerId) {
+                    console.log(res.player_name + ' live total = ' + totalPoints);
+                    console.log(res.player_name + ' gw non live total = ' + res.event_total);
+                    return {
+                        ...res,
+                        current_gameweek_points: totalPoints + res.event_total,
+                        player_pick: playerPick,
+                        live_total: res.total +
+                          totalPoints -
+                          (prevState.hasTransferPriceBeenPaid
+                            ? 0
+                            : playerPick.entry_history.event_transfers_cost),
+                      };
+                  } else {
+                    return res;
+                  }
+                }
               ),
             },
           },
@@ -274,7 +287,7 @@ class League extends Component {
     }
     if (arrayIndex === 2) {
       if (allBps[2].value === allBps[0].value) return 3;
-      return allBps[2].value === allBps[1].value ? 2 : 2;
+      return allBps[2].value === allBps[1].value ? 2 : 1;
     }
     return 0;
   }
@@ -286,8 +299,11 @@ class League extends Component {
   }
 
   componentDidMount() {
+    // const connection = new SockJS(
+    //   "https://fpl-spring-boot.herokuapp.com/websocket"
+    // );
     const connection = new SockJS(
-      "https://fpl-spring-boot.herokuapp.com/websocket"
+      "http://localhost:8080/websocket"
     );
     const stompClient = webstomp.over(connection);
     stompClient.debug = () => {};
@@ -363,13 +379,13 @@ class League extends Component {
 
   createOption = (label) => ({
     label,
-    value: label.toLowerCase().replace(/\W/g, ""),
+    value: label?.toLowerCase().replace(/\W/g, ""),
   });
 
   render() {
     const createOption = (label) => ({
       label,
-      value: label.toLowerCase().replace(/\W/g, ""),
+      value: label?.toLowerCase().replace(/\W/g, ""),
     });
 
     const leagueNames = _.chain(JSON.parse(localStorage.getItem("leagues")))
