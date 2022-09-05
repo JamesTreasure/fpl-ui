@@ -299,12 +299,12 @@ class League extends Component {
   }
 
   componentDidMount() {
-    // const connection = new SockJS(
-    //   "https://fpl-spring-boot.herokuapp.com/websocket"
-    // );
     const connection = new SockJS(
-      "http://localhost:8080/websocket"
+      "https://fpl-service.fly.dev/websocket"
     );
+    // const connection = new SockJS(
+    //   "http://localhost:8080/websocket"
+    // );
     const stompClient = webstomp.over(connection);
     stompClient.debug = () => {};
     stompClient.connect("", "", (frame) => {
